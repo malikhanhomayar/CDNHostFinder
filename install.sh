@@ -1,6 +1,6 @@
 #!/bin/bash
 # ═══════════════════════════════════════════════════════
-#  CDNHostFinder – Installation Script for Termux
+#  CDNHostFinder – Installation Script (Termux Safe)
 #  Silent Hackers Team | @silent_ai_official
 # ═══════════════════════════════════════════════════════
 
@@ -20,14 +20,16 @@ echo "║       Silent Hackers Team                    ║"
 echo "╚══════════════════════════════════════════════╝"
 echo -e "${RESET}"
 
-# Check if running in Termux
+# ── Detect environment ──────────────────────────────
+IS_TERMUX=false
 if [ -d "/data/data/com.termux" ]; then
+    IS_TERMUX=true
     echo -e "${GREEN}[✓] Termux environment detected${RESET}"
 else
-    echo -e "${YELLOW}[!] Not running in Termux (continuing anyway)${RESET}"
+    echo -e "${YELLOW}[!] Standard Linux/macOS detected${RESET}"
 fi
 
-# Check Python
+# ── Check/Install Python ────────────────────────────
 echo -e "${CYAN}[*] Checking Python installation...${RESET}"
 if command -v python3 &>/dev/null; then
     PYTHON=python3
@@ -35,29 +37,51 @@ elif command -v python &>/dev/null; then
     PYTHON=python
 else
     echo -e "${RED}[✗] Python not found! Installing...${RESET}"
-    pkg update -y && pkg install python -y
+    if [ "$IS_TERMUX" = true ]; then
+        pkg update -y && pkg install python -y
+    else
+        echo -e "${RED}[✗] Please install Python 3 manually.${RESET}"
+        exit 1
+    fi
     PYTHON=python3
 fi
 echo -e "${GREEN}[✓] Python: $($PYTHON --version)${RESET}"
 
-# Upgrade pip
-echo -e "${CYAN}[*] Upgrading pip...${RESET}"
-$PYTHON -m pip install --upgrade pip --quiet
+# ── Ensure pip is available (Termux-safe) ───────────
+echo -e "${CYAN}[*] Checking pip...${RESET}"
+if ! $PYTHON -m pip --version &>/dev/null; then
+    if [ "$IS_TERMUX" = true ]; then
+        echo -e "${YELLOW}[!] Installing python-pip via pkg...${RESET}"
+        pkg install python-pip -y
+    else
+        echo -e "${RED}[✗] pip not found. Please install python3-pip.${RESET}"
+        exit 1
+    fi
+fi
+echo -e "${GREEN}[✓] pip: $($PYTHON -m pip --version)${RESET}"
 
-# Install dependencies
+# ── Install Python dependencies ─────────────────────
 echo -e "${CYAN}[*] Installing required packages...${RESET}"
-$PYTHON -m pip install -r requirements.txt --quiet
+$PYTHON -m pip install dnspython requests urllib3 --quiet
 
-# Verify installations
+# ── Verify installations ────────────────────────────
 echo -e "${CYAN}[*] Verifying installations...${RESET}"
-$PYTHON -c "import dns.resolver; print('  ✓ dnspython:', dns.__version__)" 2>/dev/null || \
-    echo -e "${RED}  ✗ dnspython failed${RESET}"
-$PYTHON -c "import requests; print('  ✓ requests:', requests.__version__)" 2>/dev/null || \
-    echo -e "${RED}  ✗ requests failed${RESET}"
+$PYTHON -c "import dns.resolver; print('  ✓ dnspython:', dns.__version__)" 2>/dev/null && \
+    echo -e "${GREEN}  ✓ dnspython OK${RESET}" || \
+    echo -e "${RED}  ✗ dnspython failed - try: pip install dnspython${RESET}"
 
-# Make script executable
+$PYTHON -c "import requests; print('  ✓ requests:', requests.__version__)" 2>/dev/null && \
+    echo -e "${GREEN}  ✓ requests OK${RESET}" || \
+    echo -e "${RED}  ✗ requests failed - try: pip install requests${RESET}"
+
+$PYTHON -c "import urllib3; print('  ✓ urllib3:', urllib3.__version__)" 2>/dev/null && \
+    echo -e "${GREEN}  ✓ urllib3 OK${RESET}" || \
+    echo -e "${RED}  ✗ urllib3 failed${RESET}"
+
+# ── Make script executable ──────────────────────────
 chmod +x hostfinder.py
 
+# ── Done ────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════╗${RESET}"
 echo -e "${GREEN}${BOLD}║       INSTALLATION COMPLETE!                 ║${RESET}"
